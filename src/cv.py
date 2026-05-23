@@ -1,13 +1,13 @@
 import numpy as np
 from sklearn.model_selection import BaseCrossValidator
 
-class PurgedWalkForwadCV(BaseCrossValidator):
-    def __init__(self, min_train_months=240, val_months=24, embargo_months=1):
+class PurgedWalkForwardCV(BaseCrossValidator):
+    def __init__(self, min_train_months, val_months, embargo_months):
         self.min_train_months = min_train_months
         self.val_months = val_months
         self.embargo_months = embargo_months
 
-    def split(self, X, y=None, groups=None):
+    def split(self, X=None, y=None, groups=None):
         unique_months = np.sort(np.unique(groups))
         n_months = len(unique_months)
         
@@ -40,28 +40,3 @@ class PurgedWalkForwadCV(BaseCrossValidator):
                 
             return n_folds
         
-
-if __name__ == '__main__':        
-    import pandas as pd
-
-    df = pd.read_parquet('data/processed/test_clean_data.parquet')
-
-    X = df[['Ebit_Bv', 'Capex_Ps_Cf']]
-    y = df['R1M_Usd']
-    groups = pd.to_datetime(df['date']).dt.year * 100 + pd.to_datetime(df['date']).dt.month
-    groups = groups.values
-
-    cv = PurgedWalkForwadCV(min_train_months=72)
-
-    splits = list(cv.split(X, y, groups=groups))
-    print(f"Number of folds: {len(splits)}")
-
-
-    for i, (train_idx, val_idx) in enumerate(cv.split(X, y, groups=groups)):
-        train_months = np.unique(groups[train_idx])
-        val_months = np.unique(groups[val_idx])
-        
-        assert train_months.max() < val_months.min(), \
-            f"Fold {i}: train bleeds into val!"
-        
-        print(f"Fold {i}: train ends {train_months.max()}, val starts {val_months.min()}")

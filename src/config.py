@@ -34,4 +34,33 @@ CV_VAL_MONTHS = 12
 CV_EMBARGO_MONTHS = 1
 
 # Model Hyperparameters
+LINEAR_MODEL_NAMES = ['ridge', 'lasso', 'elasticnet']
 
+RIDGE_PARAMS = {
+    'alpha': [0.01, 0.1, 1, 10, 100]
+}
+
+LASSO_PARAMS = {
+    'alpha': [0.0001, 0.001, 0.01, 0.1, 1]
+}
+
+ELASTICNET_PARAMS = {
+    'alpha': [0.001, 0.01, 0.1, 1],
+    'l1_ratio': [0.2, 0.5, 0.8]
+}
+
+
+RF_PARAMS = {
+    'n_estimators': [100, 300, 500],      
+    'max_depth': [3, 5, 7],            
+    'max_features': [0.3, 0.5, 'sqrt'],   
+    'min_samples_leaf': [10, 50, 100]      
+}
+
+XGB_PARAMS = {
+    'max_depth': [3, 5],
+    'learning_rate': [0.01, 0.05],
+    'subsample': [0.5, 0.8],
+    'n_estimators': [300, 500],
+    'colsample_bytree': [0.5, 0.8]
+}
