@@ -73,8 +73,9 @@ def train_xgboost(X_train, y_train, months_train):
     values = list(XGB_PARAMS.values())
     combinations = [dict(zip(keys, combo)) for combo in product(*values)]
     n_splits = cv.get_n_splits(groups=months_train)
+    n_combinations = len(combinations)
     
-    print(f"Fitting {n_splits} folds of {len(combinations)} candidates, totalling {n_splits * len(combinations)} fits")
+    print(f"Fitting {n_splits} folds of {n_combinations} candidates, totalling {n_splits * n_combinations} fits")
     
     for params in combinations:
         fold_scores = []
@@ -113,7 +114,7 @@ def train_xgboost(X_train, y_train, months_train):
         if mean_score > best_score:
             best_score = mean_score
             best_params = params
-            print(f"New best {params}, R2 = {mean_score:.4f}")
+            print(f"New best {best_params}, R2 = {mean_score:.4f}")
             
     
     final_model = XGBRegressor(

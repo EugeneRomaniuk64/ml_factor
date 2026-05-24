@@ -1,3 +1,5 @@
+import torch
+
 # Data Parameters
 
 DATA_START = 199811
@@ -64,3 +66,30 @@ XGB_PARAMS = {
     'n_estimators': [300, 500],
     'colsample_bytree': [0.5, 0.8]
 }
+
+MLP_INPUT_SIZE = len(FEATURES)
+MLP_NUM_EPOCHS = 100
+MLP_PATIENCE = 10
+MLP_STAGE1_LR = 0.001
+MLP_STAGE1_BATCH_SIZE = 512
+
+MLP_PARAMS_STAGE1 = {
+    'hidden_sizes': [
+        (32, 16, 8),
+        (64, 32, 16),
+        (128, 64, 32),
+        (256, 128, 64),
+        (32, 16, 8, 4),
+        (64, 32, 16, 8)
+        (128, 64, 32, 16),
+        (256, 128, 64, 32)
+    ],
+    'dropout': [0.2, 0.3, 0.5]
+}
+
+MLP_PARAMS_STAGE2 = {
+    'learning_rate': [0.001, 0.0001],
+    'batch_size': [512, 1024] 
+}
+
+DEVICE = torch.device('cuda')
