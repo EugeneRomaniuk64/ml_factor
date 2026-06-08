@@ -66,6 +66,9 @@ def get_data(countries, features):
         ignore_index=True
     ).sort_values(['excntry', 'gvkey', 'eom'])
 
+    if not os.path.exists('data/raw'):
+        os.mkdir('data/raw')
+    
     panel.to_parquet('data/raw/eu_data.parquet', index=False)
     print(f"Full panel: {panel.shape[0]:,} rows, {panel.shape[1]} columns")
     
@@ -103,6 +106,9 @@ def preprocess(df, char_cols):
     df['ret_exc_lead1m'] = df.groupby('eom')['ret_exc_lead1m'].transform(
         lambda x: x.clip(x.quantile(0.01), x.quantile(0.99))
     )
+    
+    if not os.path.exists('data/processed'):
+        os.mkdir('data/processed')
     
     df.to_parquet('data/processed/clean_data.parquet')
     
