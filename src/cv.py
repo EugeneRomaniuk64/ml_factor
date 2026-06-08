@@ -1,42 +1,43 @@
 import numpy as np
+import pandas as pd
+import datetime as dt
+from dateutil.relativedelta import relativedelta
 from sklearn.model_selection import BaseCrossValidator
 
 class PurgedWalkForwardCV(BaseCrossValidator):
-    def __init__(self, min_train_months, val_months, embargo_months):
-        self.min_train_months = min_train_months
-        self.val_months = val_months
-        self.embargo_months = embargo_months
+    def __init__(self, val_length: relativedelta, embargo_length: relativedelta, val_start: dt.datetime):
+        self.val_length = val_length
+        self.embargo_length = embargo_length
+        self.val_start = val_start
 
     def split(self, X=None, y=None, groups=None):
-        unique_months = np.sort(np.unique(groups))
-        n_months = len(unique_months)
+        unique_dates = np.sort(np.unique(groups))
         
-        # First validation fold starts after min training window + embargo
-        val_start = self.min_train_months + self.embargo_months
+        fold_val_start = self.val_start
         
-        while val_start + self.val_months <= n_months:
-            train_months = unique_months[:val_start - self.embargo_months]
-            val_months = unique_months[val_start:val_start + self.val_months]
+        while fold_val_start + self.val_length <= unique_dates[-1]: 
+            fold_train_end = fold_val_start - self.embargo_length
+            fold_val_end = fold_val_start + self.val_length
             
-            train_idx = np.where(np.isin(groups, train_months))[0]
-            val_idx = np.where(np.isin(groups, val_months))[0]
+            train_idx = np.where(groups <= fold_train_end)[0]
+            val_idx = np.where((groups >= fold_val_start) & (groups < fold_val_end))[0]
             
             yield train_idx, val_idx
             
             # Advance by one val period
-            val_start += self.val_months
+            fold_val_start += self.val_length
 
     def get_n_splits(self, X=None, y=None, groups=None):
-            if groups is None:
-                return 0
-            unique_months = np.sort(np.unique(groups))
-            n_months = len(unique_months)
-            val_start = self.min_train_months + self.embargo_months
-            n_folds = 0
+        if groups is None:
+            return 0
+        unique_dates = np.sort(np.unique(groups))
+        
+        fold_val_start = self.val_start
+        n_folds = 0
+        
+        while fold_val_start + self.val_length <= unique_dates[-1]:
+            n_folds += 1
+            fold_val_start += self.val_length
             
-            while val_start + self.val_months <= n_months:
-                n_folds += 1
-                val_start += self.val_months
-                
-            return n_folds
+        return n_folds
         

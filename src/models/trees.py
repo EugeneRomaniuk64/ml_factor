@@ -1,4 +1,4 @@
-from sklearn.ensemble import RandomForestRegressor
+from cuml.ensemble import RandomForestRegressor
 from sklearn.model_selection import RandomizedSearchCV
 from sklearn.metrics import r2_score
 from xgboost import XGBRegressor
@@ -9,28 +9,27 @@ from itertools import product
 from src.cv import PurgedWalkForwardCV
 from src.model_io import save_sklearn_model
 from src.config import (
-    CV_MIN_TRAIN_MONTHS,
-    CV_VAL_MONTHS,
-    CV_EMBARGO_MONTHS,
+    CV_EMBARGO_LEN,
+    CV_FOLD_LEN,
+    CV_START,
     RF_PARAMS,
     XGB_PARAMS
 )
 
 
 
-def train_random_forest(X_train, y_train, months_train):
+def train_random_forest(X_train, y_train, dates_train):
     print("=" * 100)
     print(f"\nTraining random forest...")
     
     model = RandomForestRegressor(
-        n_jobs=-1,
         random_state=69
     )
     
     cv = PurgedWalkForwardCV(
-        min_train_months=CV_MIN_TRAIN_MONTHS,
-        val_months=CV_VAL_MONTHS,
-        embargo_months=CV_EMBARGO_MONTHS
+        val_length=CV_FOLD_LEN,
+        embargo_length=CV_EMBARGO_LEN,
+        val_start=CV_START
     )
     
     search = RandomizedSearchCV(
@@ -45,7 +44,7 @@ def train_random_forest(X_train, y_train, months_train):
         random_state=69
     )
     
-    search.fit(X_train, y_train, groups=months_train)
+    search.fit(X_train.values, y_train.values, groups=dates_train)
     
     print("=" * 100)
     print(f"random forest best params: {search.best_params_}")
@@ -56,14 +55,14 @@ def train_random_forest(X_train, y_train, months_train):
     return search.best_estimator_
 
 
-def train_xgboost(X_train, y_train, months_train):
+def train_xgboost(X_train, y_train, dates_train):
     print("=" * 100)
     print(f"\nTraining xgboost...")
     
     cv = PurgedWalkForwardCV(
-        min_train_months=CV_MIN_TRAIN_MONTHS,
-        val_months=CV_VAL_MONTHS,
-        embargo_months=CV_EMBARGO_MONTHS
+        val_length=CV_FOLD_LEN,
+        embargo_length=CV_EMBARGO_LEN,
+        val_start=CV_START
     )
     
     best_score = -np.inf
@@ -72,7 +71,7 @@ def train_xgboost(X_train, y_train, months_train):
     keys = list(XGB_PARAMS.keys())
     values = list(XGB_PARAMS.values())
     combinations = [dict(zip(keys, combo)) for combo in product(*values)]
-    n_splits = cv.get_n_splits(groups=months_train)
+    n_splits = cv.get_n_splits(groups=dates_train)
     n_combinations = len(combinations)
     
     print(f"Fitting {n_splits} folds of {n_combinations} candidates, totalling {n_splits * n_combinations} fits")
@@ -80,7 +79,7 @@ def train_xgboost(X_train, y_train, months_train):
     for params in combinations:
         fold_scores = []
         
-        for train_idx, val_idx in cv.split(X_train, groups=months_train):
+        for train_idx, val_idx in cv.split(X_train, groups=dates_train):
             X_fold_train = X_train.iloc[train_idx]
             y_fold_train = y_train.iloc[train_idx]
             X_fold_val = X_train.iloc[val_idx]

@@ -3,7 +3,6 @@ import torch.nn as nn
 from torch.optim import Adam
 from torch.utils.data import TensorDataset, DataLoader
 from sklearn.metrics import r2_score
-import copy
 import numpy as np
 from itertools import product
 
@@ -11,12 +10,11 @@ from src.model_io import save_pytorch_model
 from src.cv import PurgedWalkForwardCV
 from src.config import (
     DEVICE,
-    CV_MIN_TRAIN_MONTHS,
-    CV_VAL_MONTHS,
-    CV_EMBARGO_MONTHS,
+    CV_EMBARGO_LEN,
+    CV_FOLD_LEN,
+    CV_START,
     MLP_PARAMS_STAGE1,
     MLP_PARAMS_STAGE2,
-    MLP_INPUT_SIZE,
     MLP_NUM_EPOCHS,
     MLP_PATIENCE,
     MLP_STAGE1_LR,
@@ -50,11 +48,12 @@ def train_fold(
     y_fold_train,
     X_fold_val,
     y_fold_val, 
+    input_size,
     hidden_sizes,
     dropout,
     learning_rate,
     batch_size,
-    num_epochs
+    num_epochs,
 ):
     X_train_tensor = torch.tensor(X_fold_train.values, dtype=torch.float32).to(DEVICE)
     y_train_tensor = torch.tensor(y_fold_train.values, dtype=torch.float32).to(DEVICE)
@@ -65,7 +64,7 @@ def train_fold(
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     
     model = MLP(
-        input_size=MLP_INPUT_SIZE,
+        input_size=input_size,
         hidden_sizes=hidden_sizes,
         dropout=dropout
     ).to(DEVICE)
@@ -113,6 +112,7 @@ def train_fold(
 def refit_mlp(
     X_train,
     y_train,
+    input_size,
     hidden_sizes,
     dropout,
     learning_rate,
@@ -128,7 +128,7 @@ def refit_mlp(
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
     
     model = MLP(
-        input_size=MLP_INPUT_SIZE,
+        input_size=input_size,
         hidden_sizes=hidden_sizes,
         dropout=dropout
     ).to(DEVICE)
@@ -149,7 +149,7 @@ def refit_mlp(
     return model
  
 # We find the ideal hidden layer size and dropout first with other params fixed
-def run_stage1(X_train, y_train, months_train, cv):
+def run_stage1(X_train, y_train, months_train, cv, input_size):
     best_score = -np.inf
     best_params = None
     
@@ -176,10 +176,11 @@ def run_stage1(X_train, y_train, months_train, cv):
                 y_fold_train,
                 X_fold_val,
                 y_fold_val,
-                **params,
+                input_size,
                 learning_rate=MLP_STAGE1_LR,
                 batch_size=MLP_STAGE1_BATCH_SIZE,
-                num_epochs=MLP_NUM_EPOCHS
+                num_epochs=MLP_NUM_EPOCHS,
+                **params
             )
             
             fold_scores.append(score)
@@ -198,7 +199,7 @@ def run_stage1(X_train, y_train, months_train, cv):
     return best_params
 
 # We now find the best learning rate and batch size, with fixed params from stage 1
-def run_stage2(X_train, y_train, months_train, cv, hidden_sizes, dropout):
+def run_stage2(X_train, y_train, months_train, cv, input_size, hidden_sizes, dropout):
     best_score = -np.inf
     best_avg_epoch = None
     best_params = None
@@ -226,10 +227,11 @@ def run_stage2(X_train, y_train, months_train, cv, hidden_sizes, dropout):
                 y_fold_train,
                 X_fold_val,
                 y_fold_val,
-                **params,
+                input_size,
                 hidden_sizes=hidden_sizes,
                 dropout=dropout,
-                num_epochs=MLP_NUM_EPOCHS
+                num_epochs=MLP_NUM_EPOCHS,
+                **params
             )
             
             fold_scores.append(score)
@@ -250,25 +252,26 @@ def run_stage2(X_train, y_train, months_train, cv, hidden_sizes, dropout):
             
     return best_params, best_avg_epoch
     
-def train_mlp(X_train, y_train, months_train):
+def train_mlp(X_train, y_train, months_train, input_size):
     print("=" * 100)
     print(f"\nTraining mlp...")
     
     cv = PurgedWalkForwardCV(
-        min_train_months=CV_MIN_TRAIN_MONTHS,
-        val_months=CV_VAL_MONTHS,
-        embargo_months=CV_EMBARGO_MONTHS
+        val_length=CV_FOLD_LEN,
+        embargo_length=CV_EMBARGO_LEN,
+        val_start=CV_START
     )
     
-    best_stage1_params = run_stage1(X_train, y_train, months_train, cv)
+    best_stage1_params = run_stage1(X_train, y_train, months_train, cv, input_size)
     
-    best_stage2_params, best_avg_epochs = run_stage2(X_train, y_train, months_train, cv, **best_stage1_params)
+    best_stage2_params, best_avg_epochs = run_stage2(X_train, y_train, months_train, cv, input_size, **best_stage1_params)
     
     best_params = {**best_stage1_params, **best_stage2_params, 'num_epochs': best_avg_epochs}
     
     model = refit_mlp(
         X_train,
         y_train,
+        input_size,
         **best_params
     )
     

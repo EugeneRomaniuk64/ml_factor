@@ -1,5 +1,10 @@
-.venv/
-data/
-src/ml_investing.egg-info/
-src/__pycache__/
-src/models/__pychache__/
+.venv
+data/processed/*
+
+data/raw/*
+
+models/*
+
+src/__pycache__
+src/ml_investing.egg-info
+src/models/__pycache__
