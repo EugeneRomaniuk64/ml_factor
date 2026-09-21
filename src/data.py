@@ -67,7 +67,7 @@ def get_data(countries, features):
     ).sort_values(['excntry', 'gvkey', 'eom'])
 
     if not os.path.exists('data/raw'):
-        os.mkdir('data/raw')
+        os.mkdirs('data/raw')
     
     panel.to_parquet('data/raw/eu_data.parquet', index=False)
     print(f"Full panel: {panel.shape[0]:,} rows, {panel.shape[1]} columns")
@@ -108,7 +108,7 @@ def preprocess(df, char_cols):
     )
     
     if not os.path.exists('data/processed'):
-        os.mkdir('data/processed')
+        os.mkdirs('data/processed')
     
     df.to_parquet('data/processed/clean_data.parquet')
     

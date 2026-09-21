@@ -1,5 +1,4 @@
 from cuml.ensemble import RandomForestRegressor
-from sklearn.model_selection import RandomizedSearchCV
 from sklearn.metrics import r2_score
 from xgboost import XGBRegressor
 import numpy as np
@@ -22,42 +21,6 @@ def train_random_forest(X_train, y_train, dates_train):
     print("=" * 100)
     print(f"\nTraining random forest...")
     
-    model = RandomForestRegressor(
-        random_state=69
-    )
-    
-    cv = PurgedWalkForwardCV(
-        val_length=CV_FOLD_LEN,
-        embargo_length=CV_EMBARGO_LEN,
-        val_start=CV_START
-    )
-    
-    search = RandomizedSearchCV(
-        estimator=model,
-        param_distributions=RF_PARAMS,
-        n_iter=20,
-        cv=cv,
-        scoring='r2',
-        n_jobs=-1,
-        refit=True,
-        verbose=3,
-        random_state=69
-    )
-    
-    search.fit(X_train.values, y_train.values, groups=dates_train)
-    
-    print("=" * 100)
-    print(f"random forest best params: {search.best_params_}")
-    print(f"random forest best R2: {search.best_score_:.4f}")
-    
-    save_sklearn_model(search.best_estimator_, 'random_forest')
-    
-    return search.best_estimator_
-
-
-def train_xgboost(X_train, y_train, dates_train):
-    print("=" * 100)
-    print(f"\nTraining xgboost...")
     
     cv = PurgedWalkForwardCV(
         val_length=CV_FOLD_LEN,
@@ -68,8 +31,8 @@ def train_xgboost(X_train, y_train, dates_train):
     best_score = -np.inf
     best_params = None
    
-    keys = list(XGB_PARAMS.keys())
-    values = list(XGB_PARAMS.values())
+    keys = list(RF_PARAMS.keys())
+    values = list(RF_PARAMS.values())
     combinations = [dict(zip(keys, combo)) for combo in product(*values)]
     n_splits = cv.get_n_splits(groups=dates_train)
     n_combinations = len(combinations)
@@ -85,14 +48,86 @@ def train_xgboost(X_train, y_train, dates_train):
             X_fold_val = X_train.iloc[val_idx]
             y_fold_val = y_train.iloc[val_idx]
             
+            model = RandomForestRegressor(
+                n_estimators=500,
+                random_state=69,
+                **params
+            )
+            
+            model.fit(X_fold_train, y_fold_train)
+            
+            preds = model.predict(X_fold_val)
+            score = r2_score(y_fold_val, preds)
+            fold_scores.append(score)
+                        
+            print(f"END {params}, score={score:.4f}")
+        
+        mean_score = np.mean(fold_scores)
+        
+        if mean_score > best_score:
+            best_score = mean_score
+            best_params = params
+            print(f"New best {best_params}, R2 = {mean_score:.4f}")
+            
+    
+    final_model = RandomForestRegressor(
+        n_estimators=500,
+        random_state=69,
+        **best_params
+    )
+    
+    print("=" * 100)
+    print(f"random_forest best params: {best_params}")
+    print(f"random_forest best R2: {best_score:.4f}")
+    
+    final_model.fit(X_train, y_train)
+    
+    save_sklearn_model(final_model, 'random_forest')
+    
+    return final_model  
+
+
+def train_xgboost(X_train, y_train, dates_train):
+    print("=" * 100)
+    print(f"\nTraining xgboost...")
+    
+    cv = PurgedWalkForwardCV(
+        val_length=CV_FOLD_LEN,
+        embargo_length=CV_EMBARGO_LEN,
+        val_start=CV_START
+    )
+    
+    best_score = -np.inf
+    best_params = None
+    best_iter = None
+   
+    keys = list(XGB_PARAMS.keys())
+    values = list(XGB_PARAMS.values())
+    combinations = [dict(zip(keys, combo)) for combo in product(*values)]
+    n_splits = cv.get_n_splits(groups=dates_train)
+    n_combinations = len(combinations)
+    
+    print(f"Fitting {n_splits} folds of {n_combinations} candidates, totalling {n_splits * n_combinations} fits")
+    
+    for params in combinations:
+        fold_scores = []
+        fold_best_iter = []
+        
+        for train_idx, val_idx in cv.split(X_train, groups=dates_train):
+            X_fold_train = X_train.iloc[train_idx]
+            y_fold_train = y_train.iloc[train_idx]
+            X_fold_val = X_train.iloc[val_idx]
+            y_fold_val = y_train.iloc[val_idx]
+            
             model = XGBRegressor(
-                **params,
                 device='cuda',
                 early_stopping_rounds=20,
                 eval_metric='rmse',
                 random_state=69,
                 n_jobs=-1,
-                verbosity=0
+                verbosity=0,
+                n_estimators=3000,
+                **params
             )
             
             model.fit(
@@ -105,23 +140,27 @@ def train_xgboost(X_train, y_train, dates_train):
             preds = model.predict(X_fold_val)
             score = r2_score(y_fold_val, preds)
             fold_scores.append(score)
+            fold_best_iter.append(model.best_iteration)
             
             print(f"END {params}, score={score:.4f}")
         
         mean_score = np.mean(fold_scores)
+        mean_iter = int(np.mean(fold_best_iter))
         
         if mean_score > best_score:
             best_score = mean_score
             best_params = params
+            best_iter = mean_iter
             print(f"New best {best_params}, R2 = {mean_score:.4f}")
             
     
     final_model = XGBRegressor(
-        **best_params,
+        n_estimators=best_iter,
         device='cuda',
         random_state=69,
         n_jobs=-1,
-        verbosity=0
+        verbosity=0,
+        **best_params
     )
     
     print("=" * 100)

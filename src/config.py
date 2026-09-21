@@ -1,11 +1,12 @@
 import torch
 import pandas as pd
-import datetime as dt
 from dateutil.relativedelta import relativedelta
 
 # Data Parameters
 TRAIN_END = pd.Timestamp(year=2018, month=12, day=31)
-TEST_START = pd.Timestamp(year=2019, month=2, day=28)
+TEST_START = pd.Timestamp(year=2019, month=1, day=31)
+TEST_FOLD_LEN = relativedelta(years=1)
+TEST_EMBARGO_LEN = relativedelta(months=1)
 
 COUNTRIES = [
     'AUT', 'BEL', 'DNK', 'FIN', 'FRA', 'DEU', 'IRL',
@@ -31,33 +32,30 @@ RIDGE_PARAMS = {
 }
 
 LASSO_PARAMS = {
-    'alpha': [0.0001, 0.001, 0.01, 0.1, 1]
+    'alpha': [0.0001, 0.001, 0.01, 0.1]
 }
 
 ELASTICNET_PARAMS = {
-    'alpha': [0.0001, 0.001, 0.01, 0.1, 1],
-    'l1_ratio': [0.1, 0.2, 0.5, 0.6, 0.8, 0.9]
+    'alpha': [0.0001, 0.001, 0.01, 0.1],
+    'l1_ratio': [0.3, 0.5, 0.7]
 }
 
 
-RF_PARAMS = {
-    'n_estimators': [100, 300, 500],      
-    'max_depth': [3, 5, 7],            
-    'max_features': [0.3, 0.5, 'sqrt'],   
-    'min_samples_leaf': [10, 50, 100]      
+RF_PARAMS = {              
+    'max_features': [5, 10, 25, 50],   
+    'min_samples_leaf': [1000, 5000]      
 }
 
 XGB_PARAMS = {
-    'max_depth': [3, 5],
-    'learning_rate': [0.01, 0.05, 0.1],
+    'max_depth': [1, 2],
+    'learning_rate': [0.01, 0.1],
     'subsample': [0.5, 0.8],
-    'n_estimators': [300, 500],
     'colsample_bytree': [0.5, 0.8],
-    'min_child_weight': [10, 50, 100]
+    'min_child_weight': [1000, 5000]
 }
 
 MLP_NUM_EPOCHS = 100
-MLP_PATIENCE = 20
+MLP_PATIENCE = 15
 MLP_STAGE1_LR = 0.001
 MLP_STAGE1_BATCH_SIZE = 10000
 
@@ -67,8 +65,7 @@ MLP_PARAMS_STAGE1 = {
         (32, 16),
         (32, 16, 8),
         (64, 32),
-        (64, 32, 16),
-        (128, 64, 32)
+        (64, 32, 16)
     ],
     'dropout': [0.1, 0.3, 0.5]
 }

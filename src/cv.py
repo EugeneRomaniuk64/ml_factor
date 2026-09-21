@@ -16,7 +16,7 @@ class PurgedWalkForwardCV(BaseCrossValidator):
         fold_val_start = self.val_start
         
         while fold_val_start + self.val_length <= unique_dates[-1]: 
-            fold_train_end = fold_val_start - self.embargo_length
+            fold_train_end = fold_val_start - self.embargo_length - relativedelta(months=1)
             fold_val_end = fold_val_start + self.val_length
             
             train_idx = np.where(groups <= fold_train_end)[0]
